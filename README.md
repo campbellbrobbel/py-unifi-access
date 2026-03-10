@@ -10,7 +10,7 @@ Async Python client for the UniFi Access local API with WebSocket event support.
 
 - Async REST client (`aiohttp`) for doors, lock rules, emergency status
 - WebSocket with auto-reconnect and exponential backoff
-- Typed Pydantic v2 models for all API responses and 8 WebSocket event types
+- Typed Pydantic v2 models for all API responses and 13 WebSocket event types
 - Stateless design for Home Assistant's `DataUpdateCoordinator` pattern
 
 ## Installation

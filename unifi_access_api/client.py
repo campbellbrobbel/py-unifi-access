@@ -109,6 +109,10 @@ class UnifiAccessApiClient:
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
             self._ssl_context = ctx
+            _LOGGER.warning(
+                "SSL certificate verification disabled for %s",
+                self._host,
+            )
 
         self._websocket: UnifiAccessWebsocket | None = None
 
