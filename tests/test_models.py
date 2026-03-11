@@ -22,6 +22,8 @@ from unifi_access_api.models.websocket import (
     LocationUpdateLegacy,
     LocationUpdateV2,
     LogAdd,
+    LogSource,
+    LogTarget,
     V2DeviceUpdate,
     V2LocationUpdate,
     WebsocketMessage,
@@ -363,6 +365,105 @@ class TestV2LocationUpdate:
         assert msg.data.thumbnail is not None
         assert msg.data.thumbnail.url == "/preview/test.png"
 
+    def test_parses_with_lock_rules(self) -> None:
+        """V2 location update with remain_lock/remain_unlock is parsed."""
+        raw: dict[str, Any] = {
+            "event": "access.data.v2.location.update",
+            "data": {
+                "id": "loc-1",
+                "location_type": "door",
+                "state": {
+                    "lock": "locked",
+                    "dps": "close",
+                    "remain_lock": {
+                        "type": "keep_lock",
+                        "until": 1773200000,
+                        "state": "locked",
+                    },
+                },
+            },
+        }
+        msg = create_from_unifi_dict(raw)
+        assert isinstance(msg, V2LocationUpdate)
+        assert msg.data.state is not None
+        assert msg.data.state.remain_lock is not None
+        assert msg.data.state.remain_lock.type == DoorLockRuleType.KEEP_LOCK
+        assert msg.data.state.remain_lock.until == 1773200000
+        assert msg.data.state.remain_unlock is None
+
+    def test_parses_with_remain_unlock(self) -> None:
+        raw: dict[str, Any] = {
+            "event": "access.data.v2.location.update",
+            "data": {
+                "id": "loc-1",
+                "location_type": "door",
+                "state": {
+                    "lock": "unlocked",
+                    "dps": "open",
+                    "remain_unlock": {
+                        "type": "keep_unlock",
+                        "until": 1773300000,
+                    },
+                },
+            },
+        }
+        msg = create_from_unifi_dict(raw)
+        assert isinstance(msg, V2LocationUpdate)
+        assert msg.data.state is not None
+        assert msg.data.state.remain_unlock is not None
+        assert msg.data.state.remain_unlock.type == DoorLockRuleType.KEEP_UNLOCK
+        assert msg.data.state.remain_unlock.until == 1773300000
+        assert msg.data.state.remain_lock is None
+
+
+# ---------------------------------------------------------------------------
+# LogSource.device_config convenience property
+# ---------------------------------------------------------------------------
+
+
+class TestLogSourceDeviceConfig:
+    def test_returns_device_config_target(self) -> None:
+        source = LogSource.model_validate(
+            {
+                "target": [
+                    {"type": "door", "id": "d1"},
+                    {"type": "device_config", "id": "dc1", "display_name": "entry"},
+                ],
+            }
+        )
+        dc = source.device_config
+        assert dc is not None
+        assert dc.type == "device_config"
+        assert dc.id == "dc1"
+        assert dc.display_name == "entry"
+
+    def test_returns_none_when_absent(self) -> None:
+        source = LogSource.model_validate(
+            {"target": [{"type": "door", "id": "d1"}]}
+        )
+        assert source.device_config is None
+
+    def test_returns_none_for_empty_targets(self) -> None:
+        source = LogSource.model_validate({})
+        assert source.device_config is None
+
+
+# ---------------------------------------------------------------------------
+# LogTarget.display_name field
+# ---------------------------------------------------------------------------
+
+
+class TestLogTargetDisplayName:
+    def test_display_name_parsed(self) -> None:
+        target = LogTarget.model_validate(
+            {"type": "device_config", "id": "x", "display_name": "entry"}
+        )
+        assert target.display_name == "entry"
+
+    def test_display_name_defaults_empty(self) -> None:
+        target = LogTarget.model_validate({"type": "door", "id": "d1"})
+        assert target.display_name == ""
+
 
 # ---------------------------------------------------------------------------
 # New event models — access.data.v2.device.update
@@ -411,6 +512,36 @@ class TestV2DeviceUpdate:
         assert msg.data.location_states[0].dps == DoorPositionStatus.NONE
         assert msg.meta is not None
         assert msg.meta.target_field == ["location_states"]
+
+    def test_location_state_inherits_lock_rules(self) -> None:
+        """V2DeviceLocationState inherits remain_lock/unlock from V2LocationState."""
+        raw: dict[str, Any] = {
+            "event": "access.data.v2.device.update",
+            "data": {
+                "id": "hub-1",
+                "device_type": "UAH",
+                "location_states": [
+                    {
+                        "location_id": "loc-1",
+                        "lock": "locked",
+                        "dps": "close",
+                        "remain_lock": {
+                            "type": "keep_lock",
+                            "until": 1773200000,
+                            "state": "locked",
+                        },
+                    },
+                ],
+            },
+        }
+        msg = create_from_unifi_dict(raw)
+        assert isinstance(msg, V2DeviceUpdate)
+        ls = msg.data.location_states[0]
+        assert ls.location_id == "loc-1"
+        assert ls.remain_lock is not None
+        assert ls.remain_lock.type == DoorLockRuleType.KEEP_LOCK
+        assert ls.remain_lock.until == 1773200000
+        assert ls.remain_unlock is None
 
 
 # ---------------------------------------------------------------------------

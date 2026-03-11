@@ -167,6 +167,7 @@ class LogTarget(BaseModel, frozen=True):
 
     type: str = ""
     id: str = ""
+    display_name: str = ""
 
     model_config = {"extra": "allow"}
 
@@ -204,6 +205,11 @@ class LogSource(BaseModel, frozen=True):
     authentication: LogAuthentication = LogAuthentication()
 
     model_config = {"extra": "allow"}
+
+    @property
+    def device_config(self) -> LogTarget | None:
+        """Return the first target with type ``device_config``, or *None*."""
+        return next((t for t in self.target if t.type == "device_config"), None)
 
 
 class LogAddData(BaseModel, frozen=True):
@@ -283,7 +289,13 @@ class RemoteUnlockData(BaseModel, frozen=True):
 
 
 class RemoteUnlock(WebsocketMessage, frozen=True):
-    """Remote door unlock websocket event."""
+    """Remote door unlock websocket event.
+
+    Emitted as ``access.data.device.remote_unlock`` when an admin unlocks
+    a door remotely (e.g. via the UniFi Access dashboard).  Consumers can
+    register a handler for this event to trigger automations or update
+    UI state when a remote unlock occurs.
+    """
 
     data: RemoteUnlockData
 
@@ -337,6 +349,8 @@ class V2LocationState(BaseModel, frozen=True):
     dps_connected: bool = False
     emergency: EmergencyState = EmergencyState()
     is_unavailable: bool = False
+    remain_lock: WsDoorLockRuleStatus | None = None
+    remain_unlock: WsDoorLockRuleStatus | None = None
 
     model_config = {"extra": "allow"}
 
