@@ -289,7 +289,8 @@ class RemoteUnlockData(BaseModel, frozen=True):
 
 
 class RemoteUnlock(WebsocketMessage, frozen=True):
-    """Remote door unlock websocket event.
+    """
+    Remote door unlock websocket event.
 
     Emitted as ``access.data.device.remote_unlock`` when an admin unlocks
     a door remotely (e.g. via the UniFi Access dashboard).  Consumers can
