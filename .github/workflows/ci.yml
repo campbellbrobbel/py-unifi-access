@@ -44,3 +44,84 @@ jobs:
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  release-check:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.compare.outputs.should_release }}
+      version: ${{ steps.current.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - id: current
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from pathlib import Path
+          import tomllib
+
+          data = tomllib.loads(Path("pyproject.toml").read_text())
+          print(f"version={data['project']['version']}")
+          PY
+      - id: compare
+        run: |
+          previous_version=""
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            git show HEAD^:pyproject.toml > /tmp/previous-pyproject.toml
+            previous_version="$(python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          data = tomllib.loads(Path("/tmp/previous-pyproject.toml").read_text())
+          print(data["project"]["version"])
+          PY
+            )"
+          fi
+
+          if [ "${{ steps.current.outputs.version }}" != "$previous_version" ]; then
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    if: needs.release-check.outputs.should_release == 'true'
+    needs: [lint, test, release-check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    environment:
+      name: pypi
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*
+      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Create release tag
+        env:
+          VERSION: ${{ needs.release-check.outputs.version }}
+        run: |
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-check.outputs.version }}
+          generate_release_notes: true

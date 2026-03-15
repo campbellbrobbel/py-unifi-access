@@ -53,3 +53,21 @@ pip install -e ".[dev]"
 pre-commit install
 pytest tests/ --cov
 ```
+
+## Releases
+
+Merges to `main` now trigger an automatic release when the version in `pyproject.toml`
+changes. The workflow will:
+
+- run CI
+- build the package
+- publish it to PyPI
+- create and push a matching Git tag
+- create a GitHub release with generated notes
+
+To make PyPI publishing work, configure a PyPI trusted publisher for this GitHub
+repository and environment:
+
+- repository: `imhotep/py-unifi-access`
+- workflow file: `ci.yml`
+- environment: `pypi`
