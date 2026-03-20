@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from .const import (
     DEVICE_NOTIFICATIONS_URL,
+    DEVICES_URL,
     DOOR_LOCK_RULE_URL,
     DOOR_UNLOCK_URL,
     DOORS_EMERGENCY_URL,
@@ -30,12 +31,8 @@ from .exceptions import (
     ApiRateLimitError,
     ApiSSLError,
 )
-from .models.door import (
-    Door,
-    DoorLockRule,
-    DoorLockRuleStatus,
-    EmergencyStatus,
-)
+from .models.device import Device
+from .models.door import Door, DoorLockRule, DoorLockRuleStatus, EmergencyStatus
 from .websocket import UnifiAccessWebsocket, WsMessageHandler, WsRawMessageHandler
 
 _LOGGER = logging.getLogger(__name__)
@@ -279,6 +276,14 @@ class UnifiAccessApiClient:
                 return await resp.read()
 
     # ------------------------------------------------------------------
+    # Device operations
+    # ------------------------------------------------------------------
+
+    async def get_devices(self) -> list[Device]:
+        """Fetch all devices."""
+        return await self._request_list_in_list(Device, self._url(DEVICES_URL))
+
+    # ------------------------------------------------------------------
     # WebSocket
     # ------------------------------------------------------------------
 
@@ -342,6 +347,19 @@ class UnifiAccessApiClient:
         """Make an HTTP request and parse the response into a list of models."""
         raw = await self._request(url, method, data, params=params)
         return [response_type.model_validate(item) for item in raw]
+
+    async def _request_list_in_list(
+        self,
+        response_type: type[_T],
+        url: str,
+        method: str = "GET",
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> list[_T]:
+        """Make an HTTP request and parse the response into a list of models."""
+        raw = await self._request(url, method, data, params=params)
+        lists = [item for sublist in raw for item in sublist]
+        return [response_type.model_validate(item) for item in lists]
 
     async def _request(
         self,

@@ -2,6 +2,7 @@
 
 UNIFI_ACCESS_API_PORT = 12445
 DOORS_URL = "/api/v1/developer/doors"
+DEVICES_URL = "/api/v1/developer/devices"
 DOOR_UNLOCK_URL = "/api/v1/developer/doors/{door_id}/unlock"
 DOOR_LOCK_RULE_URL = "/api/v1/developer/doors/{door_id}/lock_rule"
 DEVICE_NOTIFICATIONS_URL = "/api/v1/developer/devices/notifications"

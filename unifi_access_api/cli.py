@@ -283,6 +283,47 @@ def set_emergency(
 
 
 # ---------------------------------------------------------------------------
+# devices
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def devices(ctx: typer.Context) -> None:
+    """List all devices."""
+
+    async def _task() -> None:
+        async with _connect(ctx.obj) as client:
+            device_list = await client.get_devices()
+            typer.echo(
+                json.dumps(
+                    [d.model_dump() for d in device_list],
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
+
+    _run(_task())
+
+
+@app.command()
+def device(
+    ctx: typer.Context, device_id: str = typer.Argument(..., help="Device ID")
+) -> None:
+    """Show a specific device by ID."""
+
+    async def _task() -> None:
+        async with _connect(ctx.obj) as client:
+            device_list = await client.get_devices()
+            found = next((d for d in device_list if d.id == device_id), None)
+            if found is None:
+                typer.secho(f"Device not found: {device_id}", fg="red")
+                raise typer.Exit(1)
+            typer.echo(json.dumps(found.model_dump(), indent=2, ensure_ascii=False))
+
+    _run(_task())
+
+
+# ---------------------------------------------------------------------------
 # listen (websocket)
 # ---------------------------------------------------------------------------
 
