@@ -20,6 +20,7 @@ class Device(BaseModel, frozen=True):
     is_online: bool = False
     capabilities: list[str] = []
     location_id: str = ""
+    connected_uah_id: str = ""
 
     @field_validator("name")
     @classmethod
